@@ -35,6 +35,7 @@ class Encoder:
     min_counter = 0          # Scale min
     counter = 0              # Initial scale position
     counter_loop = False     # If True, when at MAX, loop to MIN (-> 0, ..., MAX, MIN, ..., ->)
+    state = ""               # Button state for callback (UP or DOWN)
 
     inc_callback = None      # Clockwise rotation callback (increment)
     dec_callback = None      # Anti-clockwise rotation callback (decrement)
@@ -49,7 +50,8 @@ class Encoder:
                 self.device = evdev.InputDevice(device)
                 logger.info("Please note that the encoder switch functionnality isn't handled in `device` mode yet.")
             except OSError:
-                raise BaseException("The rotary encoder needs to be installed before use: https://github.com/raphaelyancey/pyky040#install-device")
+                raise BaseException("The rotary encoder needs to be installed before use: https://github.com/raphaelyanc
+ey/pyky040#install-device")
 
         else:
 
@@ -60,6 +62,7 @@ class Encoder:
             assert isinstance(DT, int)
             self.clk = CLK
             self.dt = DT
+            self.state = "UP" # We start as UP, because switch should be not pressed when started
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self.clk, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
             GPIO.setup(self.dt, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
@@ -67,14 +70,16 @@ class Encoder:
             if SW is not None:
                 assert isinstance(SW, int)
                 self.sw = SW
-                GPIO.setup(self.sw, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Pulled-up because KY-040 switch is shorted to ground when pressed
+                GPIO.setup(self.sw, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Pulled-up because KY-040 switch is shorted to
+ground when pressed
 
             self.clk_last_state = GPIO.input(self.clk)
             self.polling_interval = polling_interval
 
     def warnFloatDepreciation(self, i):
         if isinstance(i, float):
-            warnings.warn('Float numbers as `scale_min`, `scale_max`, `sw_debounce_time` or `step` will be deprecated in the next major release. Use integers instead.', DeprecationWarning)
+            warnings.warn('Float numbers as `scale_min`, `scale_max`, `sw_debounce_time` or `step` will be deprecated in
+ the next major release. Use integers instead.', DeprecationWarning)
 
     def setup(self, **params):
 
@@ -118,43 +123,47 @@ class Encoder:
     def _switch_press(self):
         now = time() * 1000
         if not self.sw_triggered:
+            self.state = "DOWN"
             if self.latest_switch_press is not None:
                 # Only callback if not in the debounce delta
                 if now - self.latest_switch_press > self.sw_debounce_time:
-                    self.sw_callback()
+                    self.sw_callback(self.state)
             else:  # Or if first press since script started
-                self.sw_callback()
+                self.sw_callback(self.state)
         self.sw_triggered = True
         self.latest_switch_press = now
 
     def _switch_release(self):
-        self.sw_triggered = False
+       if self.state == "DOWN":
+          self.sw_triggered = False
+          self.state = "UP"
+          self.sw_callback(self.state)
 
     def _clockwise_tick(self):
+        if self.state == "UP":
+            if self.counter + self.step <= self.max_counter:
+                self.counter += self.step
+            elif self.counter + self.step > self.max_counter:
+                # If loop, go back to min once max is reached. Else, just set it to max.
+                self.counter = self.min_counter if self.counter_loop is True else self.max_counter
 
-        if self.counter + self.step <= self.max_counter:
-            self.counter += self.step
-        elif self.counter + self.step > self.max_counter:
-            # If loop, go back to min once max is reached. Else, just set it to max.
-            self.counter = self.min_counter if self.counter_loop is True else self.max_counter
-
-        if self.inc_callback is not None:
-            self.inc_callback(self.counter)
-        if self.chg_callback is not None:
-            self.chg_callback(self.counter)
+            if self.inc_callback is not None:
+                self.inc_callback(self.counter)
+            if self.chg_callback is not None:
+                self.chg_callback(self.counter)
 
     def _counterclockwise_tick(self):
+        if self.state == "UP":
+            if self.counter - self.step >= self.min_counter:
+                self.counter -= self.step
+            elif self.counter - self.step < self.min_counter:
+                # If loop, go back to min once max is reached. Else, just set it to max.
+                self.counter = self.max_counter if self.counter_loop is True else self.min_counter
 
-        if self.counter - self.step >= self.min_counter:
-            self.counter -= self.step
-        elif self.counter - self.step < self.min_counter:
-            # If loop, go back to min once max is reached. Else, just set it to max.
-            self.counter = self.max_counter if self.counter_loop is True else self.min_counter
-
-        if self.inc_callback is not None:
-            self.dec_callback(self.counter)
-        if self.chg_callback is not None:
-            self.chg_callback(self.counter)
+            if self.inc_callback is not None:
+                self.dec_callback(self.counter)
+            if self.chg_callback is not None:
+                self.chg_callback(self.counter)
 
     def watch(self):
 
