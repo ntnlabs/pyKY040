@@ -35,7 +35,7 @@ class Encoder:
     min_counter = 0          # Scale min
     counter = 0              # Initial scale position
     counter_loop = False     # If True, when at MAX, loop to MIN (-> 0, ..., MAX, MIN, ..., ->)
-    state = ""               # Button state for callback (UP or DOWN or DOWNLONG)
+    state = ""               # Button state for callback (UP or DOWN)
 
     inc_callback = None      # Clockwise rotation callback (increment)
     dec_callback = None      # Anti-clockwise rotation callback (decrement)
@@ -123,7 +123,7 @@ class Encoder:
             self.state = "DOWN"
             if self.latest_switch_press is not None:
                 # Only callback if not in the debounce delta
-                if (( now - self.latest_switch_press ) > self.sw_debounce_time ):
+                if now - self.latest_switch_press > self.sw_debounce_time:
                     self.sw_callback(self.state)
             else:  # Or if first press since script started
                 self.sw_callback(self.state)
@@ -131,10 +131,10 @@ class Encoder:
         self.latest_switch_press = now
 
     def _switch_release(self):
-       if self.state == "DOWN":
-          self.sw_triggered = False
-          self.state = "UP"
-          self.sw_callback(self.state)
+        if self.state == "DOWN":
+            self.sw_triggered = False
+            self.state = "UP"
+            self.sw_callback(self.state)
 
     def _clockwise_tick(self):
         if self.state == "UP":
