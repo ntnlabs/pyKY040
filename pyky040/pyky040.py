@@ -50,8 +50,7 @@ class Encoder:
                 self.device = evdev.InputDevice(device)
                 logger.info("Please note that the encoder switch functionnality isn't handled in `device` mode yet.")
             except OSError:
-                raise BaseException("The rotary encoder needs to be installed before use: https://github.com/raphaelyanc
-ey/pyky040#install-device")
+                raise BaseException("The rotary encoder needs to be installed before use: https://github.com/raphaelyancey/pyky040#install-device")
 
         else:
 
@@ -70,16 +69,14 @@ ey/pyky040#install-device")
             if SW is not None:
                 assert isinstance(SW, int)
                 self.sw = SW
-                GPIO.setup(self.sw, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Pulled-up because KY-040 switch is shorted to
-ground when pressed
+                GPIO.setup(self.sw, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Pulled-up because KY-040 switch is shorted to ground when pressed
 
             self.clk_last_state = GPIO.input(self.clk)
             self.polling_interval = polling_interval
 
     def warnFloatDepreciation(self, i):
         if isinstance(i, float):
-            warnings.warn('Float numbers as `scale_min`, `scale_max`, `sw_debounce_time` or `step` will be deprecated in
- the next major release. Use integers instead.', DeprecationWarning)
+            warnings.warn('Float numbers as `scale_min`, `scale_max`, `sw_debounce_time` or `step` will be deprecated in the next major release. Use integers instead.', DeprecationWarning)
 
     def setup(self, **params):
 
